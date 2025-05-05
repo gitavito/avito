@@ -1,42 +1,41 @@
-from flask import Flask
-import threading
-from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
 import os
+import threading
+from flask import Flask
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, ContextTypes
+)
 
 app = Flask(__name__)
 
-# === Telegram Bot Initialization ===
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")  # добавь переменную в Environment на Render
-bot = Bot(token=TELEGRAM_TOKEN)
-updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-dispatcher = updater.dispatcher
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
-# === Handlers ===
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Привет! Я бот.")
+# === Bot initialization (v20+ style) ===
+application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-dispatcher.add_handler(CommandHandler("start", start))
+# === Command handler ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Бот работает.")
 
-# === One-time startup logic ===
+application.add_handler(CommandHandler("start", start))
+
+# === Run bot in background on first request ===
 started = False
 lock = threading.Lock()
 
 @app.before_request
-def initialize():
+def start_bot():
     global started
     with lock:
         if not started:
-            print(">>> Запускаем Telegram бота")
-            threading.Thread(target=updater.start_polling, daemon=True).start()
+            print(">>> Запуск Telegram бота")
+            threading.Thread(target=application.run_polling, daemon=True).start()
             started = True
 
-# === Flask route for health check ===
 @app.route('/')
 def home():
     return "Bot is running!"
 
-# === Run the Flask app ===
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
