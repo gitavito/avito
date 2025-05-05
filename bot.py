@@ -1,28 +1,17 @@
+from telegram.ext import ApplicationBuilder, CommandHandler
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-import logging
+from telegram.ext import ContextTypes
 
-# Включаем логирование (для Render логов)
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+TOKEN = "7639773519:AAESWhB_vQH5g1cA1vIqhYN3PgVpAbaL1AM"
 
-# Ответ на команду /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Бот успешно работает! 🟢")
+    await update.message.reply_text("Бот запущен и работает!")
 
-# Точка входа
 def main():
-    # Замени здесь на свой токен
-    TOKEN = "ВСТАВЬ_СЮДА_СВОЙ_ТОКЕН"
-
     app = ApplicationBuilder().token(TOKEN).build()
-
-    # Обработка команды /start
     app.add_handler(CommandHandler("start", start))
-
-    # Запуск бота
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
