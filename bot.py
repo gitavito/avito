@@ -1,49 +1,51 @@
-import re
-import json
-import requests
+import os
+import asyncio
+from io import BytesIO
+from PIL import Image
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
-from PIL import Image
-from io import BytesIO
+from playwright.async_api import async_playwright
 
 TOKEN = "7639773519:AAESWhB_vQH5g1cA1vIqhYN3PgVpAbaL1AM"
 
 async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text.strip()
+    text = update.message.text
 
-    if "avito" not in url:
+    if "avito" not in text:
         await update.message.reply_text("Пришли ссылку на Avito")
         return
 
-    await update.message.reply_text("Ищу фото...")
+    await update.message.reply_text("Парсю фотки...")
 
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.goto(text, timeout=60000)
 
-        match = re.search(r"window.__initialData__\s*=\s*({.*?});", res.text)
-        if not match:
-            await update.message.reply_text("Не смог найти данные на странице Avito.")
-            return
+            # ждём, пока картинки появятся
+            await page.wait_for_selector("img", timeout=15000)
 
-        data = json.loads(match.group(1))
-        images = []
-        try:
-            images_data = data["props"]["pageProps"]["item"]["images"]
-            for img in images_data:
-                orig = img.get("fullSizeUrl")
-                if orig:
-                    images.append(orig)
-        except Exception:
-            await update.message.reply_text("Ошибка при извлечении изображений.")
-            return
+            image_elements = await page.query_selector_all("img")
+            images = []
+
+            for img in image_elements:
+                src = await img.get_attribute("src")
+                if src and "avatars" in src and src.endswith(".jpg"):
+                    images.append(src)
+
+            await browser.close()
 
         if not images:
             await update.message.reply_text("Фотографии не найдены.")
             return
 
-        for i, img_url in enumerate(images):
-            img_data = requests.get(img_url, headers=headers).content
+        for i, url in enumerate(images):
+            from aiohttp import ClientSession
+            async with ClientSession() as session:
+                async with session.get(url) as resp:
+                    img_data = await resp.read()
+
             image = Image.open(BytesIO(img_data))
             width, height = image.size
             cropped = image.crop((0, 0, width, height - 50))
@@ -51,10 +53,11 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
             output = BytesIO()
             cropped.save(output, format="JPEG")
             output.seek(0)
+
             await update.message.reply_photo(photo=InputFile(output, filename=f"photo_{i}.jpg"))
 
     except Exception as e:
-        await update.message.reply_text(f"Ошибка при обработке: {e}")
+        await update.message.reply_text(f"Ошибка: {e}")
 
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_link))
