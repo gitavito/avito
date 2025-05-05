@@ -1,45 +1,42 @@
+from flask import Flask
+import threading
+from telegram import Bot, Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
 import os
-from flask import Flask, request
-from telegram import Update, Bot
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-
-TOKEN = os.environ.get("TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 
 app = Flask(__name__)
-bot = Bot(token=TOKEN)
 
-application = Application.builder().token(TOKEN).build()
+# === Telegram Bot Initialization ===
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")  # добавь переменную в Environment на Render
+bot = Bot(token=TELEGRAM_TOKEN)
+updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
+dispatcher = updater.dispatcher
 
-# Команды
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я работаю ✅")
+# === Handlers ===
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Привет! Я бот.")
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Список команд:\n/start — запустить бота\n/help — помощь")
+dispatcher.add_handler(CommandHandler("start", start))
 
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("help", help_command))
+# === One-time startup logic ===
+started = False
+lock = threading.Lock()
 
-# Главная страница
-@app.route("/")
+@app.before_request
+def initialize():
+    global started
+    with lock:
+        if not started:
+            print(">>> Запускаем Telegram бота")
+            threading.Thread(target=updater.start_polling, daemon=True).start()
+            started = True
+
+# === Flask route for health check ===
+@app.route('/')
 def home():
-    return "Бот работает!"
+    return "Bot is running!"
 
-# Webhook при старте
-@app.before_first_request
-def before_first():
-    print("Бот запущен и готов к работе.")
-    application.bot.set_webhook(WEBHOOK_URL)
-
-# Webhook-обработка
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    application.update_queue.put_nowait(update)
-    return "ok"
-
-# Запуск Flask-сервера
-if __name__ == "__main__":
+# === Run the Flask app ===
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host='0.0.0.0', port=port)
