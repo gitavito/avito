@@ -1,37 +1,28 @@
-import os
-import asyncio
-from flask import Flask
-from threading import Thread
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import logging
 
-app = Flask(__name__)
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+# Включаем логирование (для Render логов)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
-# === Обработчик команды /start ===
+# Ответ на команду /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Бот работает!")
+    await update.message.reply_text("Привет! Бот успешно работает! 🟢")
 
-# === Flask маршрут ===
-@app.route('/')
-def home():
-    return "Bot is alive!"
+# Точка входа
+def main():
+    # Замени здесь на свой токен
+    TOKEN = "ВСТАВЬ_СЮДА_СВОЙ_ТОКЕН"
 
-# === Запуск Flask в отдельном потоке ===
-def run_flask():
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app = ApplicationBuilder().token(TOKEN).build()
 
-# === Основной async запуск бота ===
-async def main():
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
+    # Обработка команды /start
+    app.add_handler(CommandHandler("start", start))
 
-    # Запускаем polling без завершения asyncio loop
-    await application.run_polling(close_loop=False)
+    # Запуск бота
+    app.run_polling()
 
-if __name__ == '__main__':
-    # Flask — в отдельном потоке
-    Thread(target=run_flask).start()
-
-    # Telegram бот
-    asyncio.run(main())
+if __name__ == "__main__":
+    main()
