@@ -35,7 +35,10 @@ def webhook():
     return "ok"
 
 # Установка Webhook при первом запросе
-@app.before_first_request
+def before_first():
+    # сюда вставь нужный тебе код, который должен выполняться перед первым запросом
+    print("Бот запущен и готов к работе.")
+
 def set_webhook():
     application.bot.set_webhook(WEBHOOK_URL)
 
