@@ -1,5 +1,8 @@
 python-telegram-bot[webhooks]
-requests
 beautifulsoup4
+requests
 pillow
+playwright
+aiohttp
+
 
