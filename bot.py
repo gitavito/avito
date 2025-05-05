@@ -1,5 +1,4 @@
 import os
-import threading
 from flask import Flask
 from telegram import Update
 from telegram.ext import (
@@ -10,32 +9,28 @@ app = Flask(__name__)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
-# === Bot initialization (v20+ style) ===
-application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-
-# === Command handler ===
+# === Команда бота ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Бот работает.")
 
-application.add_handler(CommandHandler("start", start))
-
-# === Run bot in background on first request ===
-started = False
-lock = threading.Lock()
-
-@app.before_request
-def start_bot():
-    global started
-    with lock:
-        if not started:
-            print(">>> Запуск Telegram бота")
-            threading.Thread(target=application.run_polling, daemon=True).start()
-            started = True
-
+# === Flask маршрут для проверки ===
 @app.route('/')
 def home():
-    return "Bot is running!"
+    return "Bot is alive!"
 
+# === Запуск бота ===
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    import asyncio
+
+    async def main():
+        app_bot = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+        app_bot.add_handler(CommandHandler("start", start))
+
+        # Запускаем Flask в отдельной задаче
+        from threading import Thread
+        Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))).start()
+
+        # Запускаем Telegram бота (async run)
+        await app_bot.run_polling()
+
+    asyncio.run(main())
