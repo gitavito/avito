@@ -38,7 +38,7 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
             img_data = requests.get(url).content
             image = Image.open(BytesIO(img_data))
 
-            # Удаляем водяной знак — обрезаем низ (пример)
+            # Удаляем водяной знак — обрезаем низ
             width, height = image.size
             cropped = image.crop((0, 0, width, height - 50))
 
@@ -51,7 +51,18 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
 
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_link))
-app.run_polling()
+if __name__ == "__main__":
+    from telegram.ext import ApplicationBuilder
 
+    PORT = int(os.environ.get("PORT", 8443))
+    DOMAIN = "https://avito-hle5.onrender.com"  # <--- поменяй на СВОЙ Render-домен, если отличается
+
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_link))
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=f"{DOMAIN}/{TOKEN}"
+    )
